@@ -1,0 +1,22 @@
+name: Automatizacion Isolation Forest
+on:
+  workflow_dispatch: # Esto activa el botón de "Play" manual
+  schedule:
+    - cron: '0 9 * * *' # Se ejecutará solo cada mañana a las 9:00
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python_version: '3.9'
+      - name: Instalar Librerias de IA
+        run: pip install pandas scikit-learn sqlalchemy pymysql
+      - name: Ejecutar Script de IA
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+        run: python script_ia.py
