@@ -104,7 +104,7 @@ if not df.empty:
     X['var_sem']   = X['var_sem'].abs()
     X['var_2sem']  = X['var_2sem'].abs()
 
-    model = IsolationForest(n_estimators=100, contamination=0.10, random_state=42)
+    model = IsolationForest(n_estimators=100, contamination=0.20, random_state=42)
     model.fit(X)
 
     df['score_ia']    = model.decision_function(X)
