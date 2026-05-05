@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # 1. CONEXIÓN
 user = os.getenv('DB_USER')
 password = os.getenv('DB_PASS')
-host = "horti.space"
+host = "srv1016.hstgr.io"
 db = "u135472660_precio"
 engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}/{db}")
 
