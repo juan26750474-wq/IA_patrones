@@ -57,6 +57,12 @@ if not df.empty:
     df = df.sort_values('F_Inicio', ascending=False)
     df = df.drop_duplicates(subset=['Producto', 'Tipo'], keep='first')
 
+    # Limpiar espacios antes del merge — evita que "ASURCADO " != "ASURCADO"
+    df['Producto']         = df['Producto'].str.strip()
+    df['Tipo']             = df['Tipo'].str.strip()
+    df_histori['Producto'] = df_histori['Producto'].str.strip()
+    df_histori['Tipo']     = df_histori['Tipo'].str.strip()
+
     # Unir histórico
     df = df.merge(df_histori, on=['Producto', 'Tipo'], how='left')
 
