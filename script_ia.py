@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from sqlalchemy import create_engine
 import warnings
-
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # 1. CONEXIÓN
@@ -14,7 +13,7 @@ host = "horti.space"
 db = "u135472660_precio"
 engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}/{db}")
 
-# 2. QUERY MEJORADA (Traemos también la fecha del precio anterior)
+# 2. QUERY
 query = """
 SELECT Producto, Tipo, Precio, F_Inicio,
        (SELECT AVG(t2.Precio) FROM datos3 t2 WHERE t2.Producto = t1.Producto AND t2.Tipo = t1.Tipo AND WEEK(t2.F_Inicio, 1) = WEEK(t1.F_Inicio, 1)) as media_sem,
@@ -28,34 +27,36 @@ AND Tipo NOT IN ('CÓNICO', 'CONICO', 'DULCE CÓNICO', 'LAMUYO ROJO', 'CALIFORNI
 df = pd.read_sql(query, engine)
 
 if not df.empty:
+
+    # ✅ DEDUPLICACIÓN: evita que el mismo Producto+Tipo entre dos veces al modelo
+    df = df.sort_values('F_Inicio', ascending=False)
+    df = df.drop_duplicates(subset=['Producto', 'Tipo'], keep='first')
+
     # --- FILTRO ANTIFALSOS POSITIVOS ---
-    # Convertimos fechas a formato datetime
     df['F_Inicio'] = pd.to_datetime(df['F_Inicio'])
     df['fecha_ant'] = pd.to_datetime(df['fecha_ant'])
-    
-    # Calculamos la diferencia de días entre el precio de hoy y el anterior
+
+    # Diferencia de días entre el precio actual y el anterior
     df['dias_desde_ultimo'] = (df['F_Inicio'] - df['fecha_ant']).dt.days
 
-    # Si han pasado más de 15 días, el precio anterior NO VALE (ponemos el actual para que la variación sea 0)
+    # Si han pasado más de 15 días, el precio anterior no vale
     df.loc[df['dias_desde_ultimo'] > 15, 'precio_ant'] = df['Precio']
-    
-    # 3. PREPARACIÓN DE LAS "FEATURES"
+
+    # 3. PREPARACIÓN DE FEATURES
     df['diff_hist'] = abs(df['Precio'] - df['media_sem'])
-    # Ahora var_sem será 0 para productos nuevos o de inicio de campaña
     df['var_sem'] = abs(df['Precio'] - df['precio_ant']) / df['precio_ant'].replace(0, np.nan)
     df.fillna(0, inplace=True)
 
-    # 4. IA
+    # 4. MODELO IA
     X = df[['Precio', 'diff_hist', 'var_sem']]
     model = IsolationForest(n_estimators=100, contamination=0.10, random_state=42)
     model.fit(X)
-    
+
     df['score_ia'] = model.decision_function(X)
     df['es_anomalia'] = model.predict(X)
 
-    # 5. GUARDAR
+    # 5. GUARDAR ANOMALÍAS
     anomalias = df[df['es_anomalia'] == -1]
-    # Solo guardamos si realmente hay una anomalía que no sea por falta de datos
     anomalias.to_sql('alertas_ia', engine, if_exists='replace', index=False)
 
     print(f"Análisis completado. Saltos de campaña filtrados. {len(anomalias)} anomalías reales.")
